@@ -31,9 +31,13 @@ kind-up:
 	kind create cluster --name $(CLUSTER) --config deploy/kind/cluster.yaml
 	kind load docker-image $(IMAGE) --name $(CLUSTER)
 	kubectl --context $(CTX) apply -f deploy/kind/api.yaml
+	kubectl --context $(CTX) apply -f deploy/kind/keycloak.yaml
 	kubectl --context $(CTX) -n agent-studio-system rollout status deploy/postgres --timeout=180s
+	kubectl --context $(CTX) -n agent-studio-system rollout status deploy/keycloak --timeout=180s
 	kubectl --context $(CTX) -n agent-studio-system rollout status deploy/control-plane --timeout=180s
-	@echo "\n✅ Agent Studio (M0+) is up on kind → http://localhost:8088\n"
+	@echo "\n✅ Agent Studio (M0+) is up on kind → http://localhost:8088"
+	@echo "   Keycloak admin console       → http://localhost:8083"
+	@echo "   Keycloak realm               → agent-studio\n"
 
 ## Rebuild + reload the image after a code change (keeps the cluster)
 kind-redeploy:
