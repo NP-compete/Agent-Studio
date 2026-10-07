@@ -171,7 +171,7 @@ export default function RunsPage() {
                     className="border-b border-border/30 transition-colors hover:bg-surface-card/50 cursor-pointer"
                     onClick={() =>
                       r.workflow_id &&
-                      router.push(`/agents/${r.workflow_id}`)
+                      router.push(`/workflows/${r.workflow_id}`)
                     }
                   >
                     <td className="px-4 py-3">{statusBadge(r.status)}</td>

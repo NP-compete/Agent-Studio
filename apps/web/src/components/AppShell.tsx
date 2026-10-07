@@ -5,7 +5,8 @@ import { usePathname } from "next/navigation";
 import { getEmail, logout } from "@/lib/auth";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Workflows", icon: "M3 3h7v7H3V3zm11 0h7v7h-7V3zM3 14h7v7H3v-7z" },
+  { href: "/console", label: "Console", icon: "M3 3h18v14H3V3zm2 2v10h14V5H5zm3 3h8M8 10h5" },
+  { href: "/workflows", label: "Workflows", icon: "M3 3h7v7H3V3zm11 0h7v7h-7V3zM3 14h7v7H3v-7z" },
   { href: "/runs", label: "Runs", icon: "M5 3l7 5-7 5V3z" },
   { href: "/settings", label: "Settings", icon: "M12 8a4 4 0 100 8 4 4 0 000-8zm0 2a2 2 0 110 4 2 2 0 010-4z" },
 ];

@@ -1,17 +1,20 @@
 # Agent Studio — Product Requirements Document
 
-> **Agent Studio** is an open-source platform for building AI agents and multi-agent workflows
-> **visually** on a canvas, running on **Kubernetes** — each agent is deployed into its own
-> isolated namespace, and coding work executes in **containerized coding CLIs** as suspend/resumable
-> sandboxes on a high-density runtime. Its defining trait is that **it builds itself, fully
-> autonomously**: Agent Studio ships agent workflows, authored inside Agent Studio, whose target repository is Agent Studio's
-> own codebase. You use the product to extend the product.
+> **Agent Studio is Lovable, but for AI agents.** Describe what you want your agent to do in plain
+> English — or drag and drop nodes on a visual canvas — and Agent Studio builds, deploys, and runs
+> it for you on Kubernetes. No framework code, no infra wiring, no YAML. Just **describe → build →
+> ship**, the same way [Lovable](https://lovable.dev) lets anyone create a web app from a prompt.
+>
+> Under the hood it runs on **Kubernetes** with per-agent namespace isolation, containerized coding
+> CLIs as suspend/resumable sandboxes, and a connectivity fabric that governs all model/tool traffic.
+> And it **builds itself**: Agent Studio ships agent workflows, authored inside Agent Studio, that
+> maintain Agent Studio's own codebase — fully autonomously.
 
 - **Name:** Agent Studio (working name; see §15-Q3). Sits *above* the two integrated subsystems it
   deploys on — **Agent Substrate** (sandbox runtime) and **agentgateway** (connectivity fabric).
-- **Status:** Draft v0.5 (PRD only — no implementation yet)
+- **Status:** Draft v0.6
 - **Author:** Platform team
-- **Date:** 2026-08-02
+- **Date:** 2026-08-04
 - **License intent:** Apache-2.0 core (see §13)
 
 ### Directly-integrated systems vs native capabilities
@@ -24,18 +27,21 @@ Agent Studio **directly deploys and integrates two external systems**, named thr
 existing implementations, the code is reimplemented/adapted into Agent Studio's own codebase; this PRD
 describes the *functionality*, not its provenance.
 
-### Locked decisions (v0.4)
-1. **Web-first.** A Next.js/React web console is the primary surface. A desktop build is a later,
+### Locked decisions (v0.6)
+1. **Lovable UX as the north star.** The primary experience is "describe what you want → get a working
+   agent." The visual canvas and spec editor are power-user paths, not the default. Every feature
+   should be accessible without code; complexity is progressively disclosed, never required.
+2. **Web-first.** A Next.js/React web console is the primary surface. A desktop build is a later,
    optional track.
-2. **Full autonomy.** The self-build loop executes end-to-end autonomously (plan → code → review →
+3. **Full autonomy.** The self-build loop executes end-to-end autonomously (plan → code → review →
    verify → merge → deploy). Safety comes from **automated gates + guardrails** (tests, ensemble/
    adversarial review, transition legality, circuit breakers, auto-rollback), not a mandatory human
    click. A human approval gate is *configurable per workflow* and off by default for trusted self-build
    tasks.
-3. **Kubernetes is the substrate.** The whole platform and every agent it builds run on Kubernetes.
+4. **Kubernetes is the substrate.** The whole platform and every agent it builds run on Kubernetes.
    **Each agent/workflow is deployed into its own namespace** with isolated compute, quotas, RBAC, and
    network policy. Multi-tenant is foundational, not a later add-on.
-4. **Containerized coding CLIs on a high-density snapshot runtime.** Node execution — especially the
+5. **Containerized coding CLIs on a high-density snapshot runtime.** Node execution — especially the
    self-build coding work — runs already-authenticated coding CLIs (Claude Code, Codex, Cursor, Aider,
    Gemini CLI) as sandboxed **actors on Agent Substrate**, not in the control-plane process. Instead of
    a cold pod per session, Substrate multiplexes many suspend/resumable actors onto a warm pool of
@@ -46,15 +52,27 @@ describes the *functionality*, not its provenance.
 
 ## 1. Summary
 
+**The Lovable analogy.** Lovable lets anyone describe a web app in natural language and get a working,
+deployed product — no React, no hosting, no boilerplate. Agent Studio does the same thing for AI agents
+and multi-agent workflows. A user describes what they want ("an agent that monitors GitHub PRs, summarizes
+them in Slack, and escalates security findings to Jira") and Agent Studio generates the workflow, wires
+the integrations, and deploys it — or they assemble it visually on a drag-and-drop canvas. Either way:
+**no framework code, no infra plumbing, just a working agent.**
+
 Building a production agent today means writing framework code, then wiring model providers, tools,
 retrieval, memory, guardrails, evaluation, and deployment by hand — and rebuilding all of it for the
-next agent. Agent Studio turns that into visual assembly on a canvas, backed by a declarative spec that
-compiles to an executable graph, and runs the result at scale on Kubernetes.
+next agent. Agent Studio collapses that into three paths of increasing control:
 
-Agent Studio's differentiator is that the platform is **self-hosting**: the same canvas, node catalog, runtime,
-and deploy surfaces a user uses to build a customer-support agent are used to plan, code, review,
-document, and ship changes to Agent Studio itself — fully autonomously. The "Meta Studio" is a first-class,
-shipped part of the product, not a side script.
+1. **Prompt-to-agent** (the Lovable path) — describe what you want; Agent Studio generates the workflow.
+2. **Visual canvas** — drag-and-drop nodes, wire edges, configure in side panels.
+3. **Spec/code** — edit the declarative JSON/YAML spec directly for full control.
+
+All three compile to the same executable graph and deploy to Kubernetes.
+
+Agent Studio's second differentiator is that the platform is **self-hosting**: the same canvas, node
+catalog, runtime, and deploy surfaces a user uses to build a customer-support agent are used to plan,
+code, review, document, and ship changes to Agent Studio itself — fully autonomously. The "Meta Studio"
+is a first-class, shipped part of the product, not a side script.
 
 This PRD defines the product, users, scope, the visual builder and node catalog, the runtime and deploy
 surfaces, the Kubernetes substrate, the two integrated external systems (Agent Substrate and
@@ -65,44 +83,58 @@ and risks.
 
 ## 2. Problem & motivation
 
-**For agent builders (primary):** Framework-code agents are slow to author, hard to observe, and
-impossible for non-engineers to touch. Every capability — retrieval, memory, human-in-the-loop
-approval, multi-model review, cost guards — is a from-scratch integration.
+**For everyone who wants an AI agent (primary):** Today, building a production agent requires a
+developer who knows LangChain or CrewAI, plus infra for hosting, secrets, observability, and
+deployment. Non-engineers can't participate; engineers spend weeks on plumbing instead of logic.
+Lovable proved that "describe it and it works" is viable for web apps — the same UX should exist for
+AI agents. **Agent Studio is that product.**
+
+**For agent builders (technical):** Even for engineers, framework-code agents are slow to author, hard
+to observe, and impossible for non-engineers to touch. Every capability — retrieval, memory,
+human-in-the-loop approval, multi-model review, cost guards — is a from-scratch integration.
 
 **For platform maintainers (the self-build case):** Agent platforms are large, fast-moving codebases.
 Maintaining one by hand doesn't scale. If the platform is any good at orchestrating agents to do
 software work, it should orchestrate agents to work on *itself* — turning every internal task (a bug, a
 new node type, a doc refresh) into a planned, reviewed, agent-executed, deployed change.
 
-**The gap:** No single tool gives you (a) a genuinely visual builder, (b) a production runtime with
-safety, observability, connectivity, and deploy built in, and (c) a self-hosting loop where the platform
-improves itself. Agent Studio composes all three.
+**The gap:** No single tool gives you (a) a "describe-and-ship" experience for non-engineers, (b) a
+genuinely visual builder for technical users, (c) a production runtime with safety, observability,
+connectivity, and deploy built in, and (d) a self-hosting loop where the platform improves itself.
+Agent Studio composes all four.
 
 ---
 
 ## 3. Goals & non-goals
 
 ### Goals
-1. **Visual-first authoring.** A drag-and-drop canvas where a user wires agents, tools, knowledge,
+1. **Describe-and-ship (the Lovable experience).** A user describes an agent in natural language and
+   gets a working, deployed workflow — generated spec, wired integrations, one-click deploy. The fastest
+   path from idea to running agent.
+2. **Visual-first authoring.** A drag-and-drop canvas where a user wires agents, tools, knowledge,
    memory, control-flow, review, and guardrail nodes into a runnable workflow — no framework code.
-2. **Declarative, compilable spec.** Every workflow is a versioned JSON/YAML document that compiles
+   Templates and a workflow marketplace accelerate common patterns.
+3. **Progressive disclosure of complexity.** Three tiers of control — prompt-to-agent → visual canvas →
+   spec/code — so non-engineers can ship agents and engineers can fine-tune them, using the same
+   underlying system.
+4. **Declarative, compilable spec.** Every workflow is a versioned JSON/YAML document that compiles
    deterministically to an executable graph. The editor is a view over the spec; the spec is the truth.
-3. **Any model, any provider, per node.** Route each node to its own provider/model with fallbacks,
+5. **Any model, any provider, per node.** Route each node to its own provider/model with fallbacks,
    BYOK, encrypted at rest, editable at runtime — reached through one governed model endpoint.
-4. **Safe by default.** Tool sandboxing/attribution, egress governance, human-in-the-loop approvals with
+6. **Safe by default.** Tool sandboxing/attribution, egress governance, human-in-the-loop approvals with
    single-use authorization, token-spiral circuit breakers, transition-legality enforcement, content
    guardrails.
-5. **Observable by default.** Every run is a span waterfall with per-node model/time/cost, exportable to
+7. **Observable by default.** Every run is a span waterfall with per-node model/time/cost, exportable to
    OpenTelemetry; failures are classified with suggested fixes.
-6. **Deploy anywhere.** Ship a workflow as an HTTP `/run` API, an MCP server, an embeddable chat widget,
+8. **Deploy anywhere.** Ship a workflow as an HTTP `/run` API, an MCP server, an embeddable chat widget,
    an email channel, or a scheduled/triggered job.
-7. **Self-hosting, fully autonomous.** Agent Studio ships "Meta Studio" workflows that autonomously plan →
+9. **Self-hosting, fully autonomous.** Agent Studio ships "Meta Studio" workflows that autonomously plan →
    implement → review → verify → merge → deploy changes against Agent Studio's own repo, gated by automated
    checks rather than mandatory human approval (§6, §12).
-8. **Kubernetes-native multi-tenancy.** The platform and every agent it builds run on Kubernetes. **Each
-   agent/workflow is isolated in its own namespace** (compute, quota, RBAC, network policy); coding work
-   runs in **containerized coding CLIs** as suspend/resumable actors on **Agent Substrate** (§7.12); all
-   agent traffic flows through **agentgateway** (§7.13).
+10. **Kubernetes-native multi-tenancy.** The platform and every agent it builds run on Kubernetes. **Each
+    agent/workflow is isolated in its own namespace** (compute, quota, RBAC, network policy); coding work
+    runs in **containerized coding CLIs** as suspend/resumable actors on **Agent Substrate** (§7.12); all
+    agent traffic flows through **agentgateway** (§7.13).
 
 ### Non-goals (v1)
 - Not a general no-code app builder; it builds **agents/workflows**, though agents may generate their
@@ -119,7 +151,8 @@ improves itself. Agent Studio composes all three.
 
 | Persona | Needs | Primary surfaces |
 |---|---|---|
-| **Agent Builder** (semi-technical PM, ops, solutions eng) | Assemble a working agent from blocks, test it, ship it | Canvas, node config forms, playground, deploy |
+| **Creator** (non-technical: PM, ops, founder, domain expert) | Describe an agent in plain language and get it running — no code, no infra | Prompt-to-agent, templates, one-click deploy, playground |
+| **Agent Builder** (semi-technical: solutions eng, data scientist) | Assemble a working agent from blocks, test it, iterate visually | Canvas, node config forms, playground, deploy |
 | **Platform Engineer** | Author custom tools/nodes, run at scale, integrate CI/secrets | Tool builder, spec/YAML, API, RBAC, observability |
 | **Agent Studio Maintainer** (dogfood user) | Turn an issue into a reviewed, deployed change to Agent Studio | Meta Studio workflows, ensemble/adversarial review, self-docs |
 | **Agent Studio itself** (autonomous) | Execute tasks against its own repo | Scheduler/triggers → Meta Studio → sandboxed actor → merge → deploy |
@@ -206,13 +239,30 @@ workflow opts into manual approval.
 
 ## 7. Functional requirements (by capability)
 
-### 7.1 Visual builder & canvas
+### 7.1 Visual builder, canvas & prompt-to-agent
 - **FR-1.1** Drag-and-drop node-graph canvas with node palette, config side-panel, edge routing, and a
   live test panel.
 - **FR-1.2** **DAG validation before run** (detect cycles, broken edges, unreachable nodes) with inline
   errors on the canvas, plus reachability analysis.
 - **FR-1.3** Cohesive design system (a light warm-neutral theme and a dark charcoal theme, tonal depth).
 - **FR-1.4** Spec ⇄ canvas round-trip: editing YAML/JSON updates the canvas and vice-versa.
+- **FR-1.5** **Prompt-to-agent (the Lovable path).** A user types a natural-language description of
+  what their agent should do; an LLM generates the workflow spec (nodes, edges, configs, integrations),
+  renders it on the canvas for review, and offers one-click deploy. The generated spec is editable — the
+  user can refine via follow-up prompts ("add a Slack notification step", "use GPT-4o instead") or
+  switch to the canvas/spec view for manual tweaks. Iterative: the chat stays open alongside the canvas.
+- **FR-1.6** **Workflow templates & marketplace.** A curated library of starter workflows (customer
+  support bot, PR reviewer, data pipeline monitor, content moderator, Slack bot, scheduled reporter)
+  that a user can deploy as-is or fork and customize. Community-contributed templates surface in a
+  searchable marketplace. Each template includes a description, required integrations, and a "Use this
+  template" one-click action.
+- **FR-1.7** **Guided onboarding.** First-run experience: choose "Describe your agent" (prompt path) or
+  "Start from a template" or "Build from scratch" (canvas). Each path leads to a deployed, running
+  agent in under 5 minutes. Progressive disclosure: start simple, reveal advanced config (middleware,
+  guardrails, multi-model) as the user needs it.
+- **FR-1.8** **Live preview & playground.** Test a workflow interactively before deploying — send
+  messages, see node-by-node execution in real time, inspect intermediate state. The playground is the
+  "Run" panel, available at every stage (post-prompt-generation, during canvas editing, after deploy).
 
 ### 7.2 Declarative spec, node schema & compiler
 - **FR-2.1** A **JSON-Schema-defined node catalog** (§9) is the contract between UI, spec, and runtime.
@@ -618,24 +668,31 @@ trust only as the automated gates demonstrably earn it, and ratcheting stringenc
 safety gate or bad deploy. Kubernetes/namespace isolation and the two integrated systems land early so the
 self-build loop runs containerized from its first execution.
 
-- **M0 — Hand-built core on Kubernetes.** Canvas + node schema + compiler + runtime + provider registry +
-  one deploy surface (`/run` API), **plus** the Kubernetes substrate: control plane in `agent-studio-system`, the
-  operator/reconciler that provisions a **per-agent namespace + atespace**, a **containerized coding-CLI
-  session** behind a swappable **Runtime port** (default adapter: Substrate actor; fallback:
-  pod-per-session), and **agentgateway** for model/tool access (LLM + MCP gateways). *Exit:* visually
-  build a 3-node agent, deploy it into its own namespace, hit its `/run` API; a coding-CLI node executes
-  in a sandboxed actor and reaches models only through the gateway.
-- **M1 — Autonomous Meta Studio v0 (first self-build).** Ship the "Agent Studio Dev" workflow (plan→items→
-  actor:CLI+worktree→auto-fix→jury/debate/premortem→verify→**auto-merge**→rollout) targeting Agent Studio's own
-  repo, **fully autonomous behind automated hard-gates** (human approval off by default). Add the repo
-  knowledge base, cost/trace observability, and the full safety layer (legality + circuit breaker +
-  tool-policy + guardrails + auto-rollback). *Exit:* a real Agent Studio feature is planned, coded, reviewed,
-  merged, and deployed by the loop with no human click, and a bad change is caught by a gate or rolled
-  back.
-- **M2 — Capability breadth.** Tool builder (REST/GraphQL/SQL/code/MCP + projection), OAuth connector
-  registry, knowledge/RAG + skills ingestion, memory + consolidation, more deploy surfaces (MCP server,
-  widget, email, scheduler), A2A multi-agent workflows, self-docs wiki, RBAC/SSO hardening. *Exit:* build
-  a non-trivial external agent end-to-end and deploy it 3 ways into its own namespace.
+- **M0 — Hand-built core on Kubernetes (the canvas path).** Canvas + node schema + compiler + runtime +
+  provider registry + one deploy surface (`/run` API) + workflow templates + guided onboarding, **plus**
+  the Kubernetes substrate: control plane in `agent-studio-system`, the operator/reconciler that
+  provisions a **per-agent namespace + atespace**, a **containerized coding-CLI session** behind a
+  swappable **Runtime port** (default adapter: Substrate actor; fallback: pod-per-session), and
+  **agentgateway** for model/tool access (LLM + MCP gateways). *Exit:* visually build a 3-node agent
+  (or pick a template), deploy it into its own namespace, hit its `/run` API; a coding-CLI node
+  executes in a sandboxed actor and reaches models only through the gateway. First-run onboarding
+  guides a user to a working agent in under 5 minutes.
+- **M1 — Prompt-to-agent + Meta Studio v0 (the Lovable path).** Ship the **prompt-to-agent** experience:
+  describe an agent in natural language → generated workflow on canvas → one-click deploy. Iterative
+  refinement via follow-up prompts. Ship the "Agent Studio Dev" workflow (plan→items→actor:CLI+worktree→
+  auto-fix→jury/debate/premortem→verify→**auto-merge**→rollout) targeting Agent Studio's own repo,
+  **fully autonomous behind automated hard-gates** (human approval off by default). Add the repo
+  knowledge base, cost/trace observability, live playground, and the full safety layer (legality +
+  circuit breaker + tool-policy + guardrails + auto-rollback). *Exit:* a non-technical user describes
+  "a Slack bot that answers questions from our docs" and gets a deployed, working agent; a real Agent
+  Studio feature is planned, coded, reviewed, merged, and deployed by the self-build loop with no human
+  click.
+- **M2 — Capability breadth + marketplace.** Tool builder (REST/GraphQL/SQL/code/MCP + projection),
+  OAuth connector registry, knowledge/RAG + skills ingestion, memory + consolidation, more deploy
+  surfaces (MCP server, widget, email, scheduler), A2A multi-agent workflows, self-docs wiki, RBAC/SSO
+  hardening, **community template marketplace** (publish, discover, fork). *Exit:* build a non-trivial
+  external agent end-to-end and deploy it 3 ways into its own namespace; 20+ templates in the
+  marketplace.
 - **M3 — Self-improvement + hardening.** RAG self-tuner and architecture-deepening sweep autonomously
   feeding the Dev loop; multi-tenant hardening (network policy, quotas, CEL policy); multi-host export +
   plugin packaging; optional desktop build. *Exit:* an Agent Studio-authored improvement to Agent Studio's own retrieval
@@ -662,8 +719,10 @@ from Meta Studio workflows, not hand-written by maintainers.
 
 Grouped feature set. Only the two directly-integrated systems are named; everything else is native.
 
-- **Visual builder:** node-graph canvas, palette, config forms, live test panel, DAG validation +
-  reachability, spec⇄canvas round-trip, light/dark design system.
+- **Visual builder & prompt-to-agent:** prompt-to-agent (NL → generated workflow), node-graph canvas,
+  palette, config forms, live playground, DAG validation + reachability, spec⇄canvas round-trip,
+  workflow templates + marketplace, guided onboarding, iterative prompt refinement, light/dark design
+  system.
 - **Spec & compiler:** JSON-Schema node catalog, spec→executable-graph compiler (routers/branches/guards),
   optional YAML agent-spec + orchestrator, declarative agent middleware stack.
 - **Runtime:** SSE streaming, topological-layer parallelism, durable checkpoint/replay, handoff artifacts,
@@ -732,9 +791,9 @@ Grouped feature set. Only the two directly-integrated systems are named; everyth
   *Mitigation:* run it HA (horizontally-scalable by design), health-check + auto-rollback its own
   rollouts, keep an in-process MCP/egress break-glass fallback for local/standalone mode.
 
-**Resolved (v0.4):** Q1 web-first ✔ · Q2 full autonomy ✔ · Q4 Kubernetes multi-tenant, namespace-per-agent
+**Resolved (v0.6):** Q1 web-first ✔ · Q2 full autonomy ✔ · Q4 Kubernetes multi-tenant, namespace-per-agent
 ✔ · Q5 containerized coding CLIs on the high-density actor runtime ✔ · Q9 model access via the gateway
-LLM endpoint ✔.
+LLM endpoint ✔ · **Lovable-first UX** ✔ (prompt-to-agent as the primary path, progressive disclosure).
 
 **Still open (recommend resolving before M0)**
 - **Q3 — Name:** working name is **Agent Studio**. Open item: it shares the "Agent" prefix with the two
@@ -763,8 +822,13 @@ LLM endpoint ✔.
 ---
 
 ## 16. Success metrics
-- **Time-to-first-agent:** a user visually builds a 3-node agent and it is running in **its own namespace**
-  with a live `/run` API in < 15 min.
+- **Prompt-to-running-agent (the Lovable metric):** a non-technical user describes an agent in plain
+  English and has it deployed and responding in < 5 min. This is the north-star UX metric.
+- **Time-to-first-agent (canvas path):** a user visually builds a 3-node agent and it is running in
+  **its own namespace** with a live `/run` API in < 15 min.
+- **Activation rate:** ≥ 60% of new users who start the prompt-to-agent flow have a deployed agent by
+  end of first session.
+- **Template adoption:** ≥ 40% of first agents created are forked from a template.
 - **Autonomous self-build crossover:** ≥ 50% of Agent Studio's own merged PRs are planned, coded, reviewed,
   merged, and deployed **autonomously** by Meta Studio workflows by M3 (no human click).
 - **Gate efficacy:** automated hard-gates (jury + adversarial + tests + security) catch ≥ X% of seeded

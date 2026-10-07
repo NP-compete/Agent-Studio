@@ -99,7 +99,8 @@ agent-studio/
 │   ├── api/v1alpha1/             #   CRD types + kubebuilder markers: AgentDeployment, Schedule, Credential
 │   ├── internal/controller/      #   reconcilers (reconcile-don't-create)
 │   └── config/                   #   kustomize: crd/ · rbac/ (marker-generated) · manager/
-├── apps/web/                    # Next.js/React console + BFF (FR-1, FR-12.5)
+├── apps/web/                    # Next.js 14/React console + BFF (FR-1, FR-12.5) — see §11
+│   └── src/app/                  #   App Router pages: console/, workflows/, runs/, settings/, skills/, mcp-servers/
 ├── actors/                      # coding-CLI actor base images → ActorTemplates (FR-4.3, FR-12.9)
 │   ├── base/                     #   common sandbox base (token guard + eBPF attribution sidecars)
 │   └── {claude-code,codex,cursor,aider,gemini}/
@@ -504,12 +505,31 @@ supervising operator is change-frozen except under human approval (R3).
 
 ## 11. Web console (`apps/web`, FR-1)
 
-- Next.js/React, **BFF pattern** holding OIDC tokens server-side (FR-12.5).
-- Node-graph canvas (library TBD, §2/§12): palette, config side-panel, edge routing, live test panel,
+- Next.js 14/React App Router, **BFF pattern** holding OIDC tokens server-side (FR-12.5).
+- Node-graph canvas (@xyflow/react): palette, config side-panel, edge routing, live test panel,
   inline DAG errors (FR-1.1/1.2).
 - **Spec ⇄ canvas round-trip** over the same schema-generated TS types (FR-1.4).
 - Design system: light warm-neutral + dark charcoal tokens (FR-1.3).
-- Surfaces: canvas, Meta Studio dashboard, run trace waterfall (FR-9.1), embed generator.
+
+### 11.1 Routes & pages
+
+| Route | Page | Purpose |
+|---|---|---|
+| `/` | Redirect → `/console` | Entry point; sends users to the Console dashboard |
+| `/console` | **Console** (product page) | System status, usage stats, quick actions, platform feature overview, getting-started guide — the consumer-facing landing experience |
+| `/workflows` | Workflow list | Grid of saved workflows with create/delete |
+| `/workflows/new` | Canvas editor | Full drag-and-drop workflow builder |
+| `/workflows/[id]` | Workflow editor | Edit an existing workflow |
+| `/runs` | Run history | Filterable list of workflow executions with status badges |
+| `/settings` | Provider settings | CRUD for LLM providers (OpenAI, Anthropic) |
+| `/login` | Auth | Keycloak OIDC login |
+| `/skills` | Skills | Skill library management |
+| `/mcp-servers` | MCP Servers | MCP server configuration |
+
+### 11.2 Navigation
+
+The `AppShell` sidebar provides persistent navigation across all authenticated pages:
+Console → Workflows → Runs → Settings. User identity and sign-out are in the sidebar footer.
 
 ---
 
